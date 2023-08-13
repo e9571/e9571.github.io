@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<title>account</title>
+<title>gladiator</title>
 </head>
 
 
@@ -37,14 +37,26 @@ $(document).ready(function(){
 	
 	//http://127.0.0.1/nft_market_min/fulfillRandomWords.html
 
-    //随机数消费合约地址 需要在后台注册
-	$("#contract").val("0x30f52C5Ba62A8d0403Db910AFF43d876391EaC70");
+    //合约地址
+	$("#contract").val("0x277D8b2d05AFD1574976D021356eFA64D74C57c8");
+	
+	$("#contractErc20").val("0x784Ff0D03981c4aE1beECF309C7116d7F549f23b");
+	
+	//Pol
+	//$("#contractErc20").val("0x3Fc2582317d97cA524288eE800802c12471b36E5");
+	
+	$("#referrer").val("0x77E998AE9E3E70df19cf980c4DF2785648339195");
 	
 	//设置全局链接
-	$("#web3connect").val("https://goerli.infura.io/v3/beb58a744d6a47ecb3176bc2bef2f0ff");
+	$("#web3connect").val("https://bsc-testnet.publicnode.com");
+	
+	//Poy
+	//$("#web3connect").val("https://polygon-mumbai.blockpi.network/v1/rpc/public");
    
    console.log('web3链接地址',$("#web3connect").val());//打印服务器信息
    console.log('合约地址',$("#contract").val());//打印服务器信息
+   
+   $("#contractAddress").text($("#contract").val());
 			
 });
 
@@ -82,8 +94,113 @@ function account(){
 	
 }
 
+//查询用户信息已经下注金额 已经投注金额
+function userInfo(Type){
+	
+	//申请链接句柄
+	var web3Provider;
 
-function create(){
+    if (window.ethereum) {
+        web3Provider = window.ethereum;
+        try {
+            // 请求用户授权
+             window.ethereum.enable();
+        } catch (error) {
+            // 用户不授权时
+            console.error("User denied account access")
+        }
+    }
+	//链接数据实例 
+    //web3js = new Web3(web3Provider|| "https://data-seed-prebsc-1-s1.binance.org:8545/");
+    web3js = new Web3(web3Provider|| $("#web3connect").val());
+	
+    web3js.eth.getAccounts(function (error, result) {
+        if (!error)
+            console.log(result);//打印账号信息
+			$("#address").val(result[0]);			
+    });
+	
+	
+    //初始化合约
+	address=$("#contract").val();
+	abi_text=contract_abi();
+	MyContract = new web3js.eth.Contract(JSON.parse(abi_text), address);
+	
+	
+	console.log("Accounts",$("#address").val());
+	
+    console.log('contract',address);
+	console.log('type',Type);
+
+    
+    
+    //Gas 查询
+   	//预估 Gas 费用
+	if(Type==0)
+	{
+		   //MyContract.methods.getUserItems().estimateGas({from: $("#address").val()}).then(account_debug); 
+		   MyContract.methods.getUserItems($("#address").val()).call().then(account_contract); //接收 Gas 费用
+	}else{
+		
+    MyContract.methods.getUserItemsGas().send({from: $("#address").val(),gas: 10001000  //Gas 费用测试时调到最大，正式上线需要根据预估出的 GAS 费用动态传值
+    }, function(error, transactionHash){
+       if (!error) {
+	   console.log("交易hash：", transactionHash)
+       } else {
+	   console.log(error)
+       }
+    }).then(function (receipt) {//监听后续的交易情况
+	
+       console.log('交易响应',receipt);
+       console.log("交易状态：", receipt.status);
+	   console.log("交易事件消息：", receipt.events);	  
+    });
+		
+	}
+ 
+    
+	
+}
+
+function contractInfo(){
+	
+	//申请链接句柄
+	var web3Provider;
+
+    if (window.ethereum) {
+        web3Provider = window.ethereum;
+        try {
+            // 请求用户授权
+             window.ethereum.enable();
+        } catch (error) {
+            // 用户不授权时
+            console.error("User denied account access")
+        }
+    }
+	//链接数据实例 
+    //web3js = new Web3(web3Provider|| "https://data-seed-prebsc-1-s1.binance.org:8545/");
+    web3js = new Web3(web3Provider|| $("#web3connect").val());
+	
+    web3js.eth.getAccounts(function (error, result) {
+        if (!error)
+            console.log(result);//打印账号信息
+			$("#address").val(result[0]);			
+    });
+	
+	
+    //初始化合约
+	address=$("#contract").val();
+	abi_text=contract_abi();
+	MyContract = new web3js.eth.Contract(JSON.parse(abi_text), address);
+	
+	
+	MyContract.methods.getContractInfo().call().then(account_contract);
+
+
+}
+
+//授权函数
+function approveFunc(){
 	
 	//申请链接句柄
 	var web3Provider;
@@ -110,15 +227,21 @@ function create(){
 	
 	
     //初始化合约
-	address=$("#contract").val();
-	abi_text=contract_abi();
+	address=$("#contractErc20").val();
+	abi_text=contract_erc20_abi();
 	MyContract = new web3js.eth.Contract(JSON.parse(abi_text), address);
+	
+	var amount= $("#amount_bet").val();
+	
+	console.log('contract',address);
+	console.log('amount',amount);
 
-	//预估 Gas 费用 
-	//请求随机数
-    MyContract.methods.requestRandomWords().estimateGas({from: $("#address").val()}).then(account_debug);  //接收 Gas 费用
+
+
+   	//预估 Gas 费用 
+    MyContract.methods.approve($("#contract").val(),web3js.utils.toWei(amount, 'ether')).estimateGas({from: $("#address").val()}).then(account_debug);  //接收 Gas 费用
     
-    MyContract.methods.requestRandomWords().send({from: $("#address").val(),gas: 10001000  //Gas 调到最大，以免在铸造过程中出现终中断的情况
+    MyContract.methods.approve($("#contract").val(),web3js.utils.toWei(amount, 'ether')).send({from: $("#address").val(),gas: 10001000  //Gas 费用测试时调到最大，正式上线需要根据预估出的 GAS 费用动态传值
     }, function(error, transactionHash){
        if (!error) {
 	   console.log("交易hash：", transactionHash)
@@ -132,10 +255,71 @@ function create(){
 	   console.log("交易事件消息：", receipt.events);	  
     });
 
+
 }
 
-//获得指定范围随机数
-function GetRandom(){
+//进行下注
+function Betting(){
+	
+	//申请链接句柄
+	var web3Provider;
+
+    if (window.ethereum) {
+        web3Provider = window.ethereum;
+        try {
+            // 请求用户授权
+             window.ethereum.enable();
+        } catch (error) {
+            // 用户不授权时
+            console.error("User denied account access")
+        }
+    }
+	//链接数据实例 
+    //web3js = new Web3(web3Provider|| "https://data-seed-prebsc-1-s1.binance.org:8545/");
+	web3js = new Web3(web3Provider|| "wss://rinkeby.infura.io/ws/v3/509b5f37c12440b7befb229b2613369c");
+	
+    web3js.eth.getAccounts(function (error, result) {
+        if (!error)
+            console.log(result);//打印账号信息
+			$("#address").val(result[0]);			
+    });
+	
+	
+    //初始化合约
+	address=$("#contract").val();
+	abi_text=contract_abi();
+	MyContract = new web3js.eth.Contract(JSON.parse(abi_text), address);
+	
+	var amount= $("#amount_bet").val();
+	
+	console.log('contract',address);
+	console.log('amount',amount);
+	console.log('type',$("#type").val());
+	console.log('referrer',$("#referrer").val());
+
+
+   	//预估 Gas 费用 
+    MyContract.methods.Betting($("#type").val(),web3js.utils.toWei(amount, 'ether'),$("#referrer").val()).estimateGas({from: $("#address").val()}).then(account_debug);  //接收 Gas 费用
+    
+    MyContract.methods.Betting($("#type").val(),web3js.utils.toWei(amount, 'ether'),$("#referrer").val()).send({from: $("#address").val(),gas: 10001000  //Gas 费用测试时调到最大，正式上线需要根据预估出的 GAS 费用动态传值
+    }, function(error, transactionHash){
+       if (!error) {
+	   console.log("交易hash：", transactionHash)
+       } else {
+	   console.log(error)
+       }
+    }).then(function (receipt) {//监听后续的交易情况
+	
+       console.log('交易响应',receipt);
+       console.log("交易状态：", receipt.status);
+	   console.log("交易事件消息：", receipt.events);	  
+    });
+
+
+}
+
+//领取奖励
+function get_bonus(){
 	
 	//申请链接句柄
 	var web3Provider;
@@ -166,14 +350,95 @@ function GetRandom(){
 	abi_text=contract_abi();
 	MyContract = new web3js.eth.Contract(JSON.parse(abi_text), address);
 
-   	MyContract.methods.GetRandom($("#start").val(),$("#end").val()).call().then(account_debug);
+   	//预估 Gas 费用 
+    MyContract.methods.profitDistribution().estimateGas({from: $("#address").val()}).then(account_debug);  //接收 Gas 费用
+    
+    MyContract.methods.profitDistribution().send({from: $("#address").val(),gas: 10001000  //Gas 费用测试时调到最大，正式上线需要根据预估出的 GAS 费用动态传值
+    }, function(error, transactionHash){
+       if (!error) {
+	   console.log("交易hash：", transactionHash)
+       } else {
+	   console.log(error)
+       }
+    }).then(function (receipt) {//监听后续的交易情况
+	
+       console.log('交易响应',receipt);
+       console.log("交易状态：", receipt.status);
+	   console.log("交易事件消息：", receipt.events);	  
+    });
+
 
 }
+
+//特殊情况 合约撤单
+function sendBack(){
+	
+	//申请链接句柄
+	var web3Provider;
+
+    if (window.ethereum) {
+        web3Provider = window.ethereum;
+        try {
+            // 请求用户授权
+             window.ethereum.enable();
+        } catch (error) {
+            // 用户不授权时
+            console.error("User denied account access")
+        }
+    }
+	//链接数据实例 
+    //web3js = new Web3(web3Provider|| "https://data-seed-prebsc-1-s1.binance.org:8545/");
+	web3js = new Web3(web3Provider|| "wss://rinkeby.infura.io/ws/v3/509b5f37c12440b7befb229b2613369c");
+	
+    web3js.eth.getAccounts(function (error, result) {
+        if (!error)
+            console.log(result);//打印账号信息
+			$("#address").val(result[0]);			
+    });
+	
+	
+    //初始化合约
+	address=$("#contract").val();
+	abi_text=contract_abi();
+	MyContract = new web3js.eth.Contract(JSON.parse(abi_text), address);
+
+   	//预估 Gas 费用 
+    MyContract.methods.profitSendBack().estimateGas({from: $("#address").val()}).then(account_debug);  //接收 Gas 费用
+    
+    MyContract.methods.profitSendBack().send({from: $("#address").val(),gas: 10001000  //Gas 费用测试时调到最大，正式上线需要根据预估出的 GAS 费用动态传值
+    }, function(error, transactionHash){
+       if (!error) {
+	   console.log("交易hash：", transactionHash)
+       } else {
+	   console.log(error)
+       }
+    }).then(function (receipt) {//监听后续的交易情况
+	
+       console.log('交易响应',receipt);
+       console.log("交易状态：", receipt.status);
+	   console.log("交易事件消息：", receipt.events);	  
+    });
+
+
+}
+
 
 //账户余额回调设置
 function account_balance(result){
 	  console.log(result);
 	  $("#balance").text(result);
+}
+
+//用户信息回调设置
+function account_info(result){
+	  console.log(result);
+	  //$("#info").text(result);
+}
+
+//合约全局信息 回调后显示下注金额与计算赔率
+function account_contract(result){
+	  console.log(result);
+	  //$("#info").text(result);
 }
 
 //账户代币余额
@@ -184,7 +449,15 @@ function account_debug(result){
 //合约地址
 function contract_abi(){
 	
-	var text='[{"inputs":[{"internalType":"uint64","name":"subscriptionId","type":"uint64"}],"stateMutability":"nonpayable","type":"constructor"},{"inputs":[{"internalType":"address","name":"have","type":"address"},{"internalType":"address","name":"want","type":"address"}],"name":"OnlyCoordinatorCanFulfill","type":"error"},{"inputs":[{"internalType":"uint256","name":"start","type":"uint256"},{"internalType":"uint256","name":"end","type":"uint256"}],"name":"GetRandom","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"requestId","type":"uint256"},{"internalType":"uint256[]","name":"randomWords","type":"uint256[]"}],"name":"rawFulfillRandomWords","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"requestRandomWords","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"s_randomWords","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"s_requestId","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}]';
+	var text='[{"inputs":[{"internalType":"address","name":"admin1","type":"address"},{"internalType":"address","name":"admin2","type":"address"},{"internalType":"address","name":"addr1","type":"address"},{"internalType":"address","name":"addr2","type":"address"},{"internalType":"address","name":"addr3","type":"address"},{"internalType":"address","name":"tokenAddr","type":"address"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"previousOwner","type":"address"},{"indexed":true,"internalType":"address","name":"newOwner","type":"address"}],"name":"OwnershipTransferred","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"address","name":"addr","type":"address"},{"components":[{"internalType":"uint256","name":"place","type":"uint256"},{"internalType":"address","name":"user","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"uint256","name":"Type","type":"uint256"},{"internalType":"uint256","name":"referrer","type":"uint256"},{"internalType":"uint256","name":"earnings","type":"uint256"}],"indexed":false,"internalType":"struct Gladiator.userItem","name":"data","type":"tuple"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"debug","type":"event"},{"stateMutability":"payable","type":"fallback"},{"inputs":[{"internalType":"uint256","name":"Type","type":"uint256"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"address","name":"referrer","type":"address"}],"name":"Betting","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"LogHandle","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"Status","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"Type0","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"Type1","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"Type2","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"affirm","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getContractInfo","outputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"int256","name":"","type":"int256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"addr","type":"address"}],"name":"getUserItems","outputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getUserItemsGas","outputs":[{"components":[{"internalType":"uint256","name":"place","type":"uint256"},{"internalType":"address","name":"user","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"uint256","name":"Type","type":"uint256"},{"internalType":"uint256","name":"referrer","type":"uint256"},{"internalType":"uint256","name":"earnings","type":"uint256"}],"internalType":"struct Gladiator.userItem","name":"","type":"tuple"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"itemPlace","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"maxAmount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"minAmount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"ownerFee1","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"ownerFee2","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"ownerFee3","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"ownerNumFee1","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"ownerNumFee2","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"ownerNumFee3","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"profitDistribution","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"profitSendBack","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"winValue","type":"uint256"},{"internalType":"uint256","name":"gameAmount","type":"uint256"},{"internalType":"uint256","name":"userAmount","type":"uint256"}],"name":"proportionCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"referrerNumFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"renounceOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"tokenAddr","type":"address"},{"internalType":"address","name":"to","type":"address"}],"name":"safeTransferAdmin","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"Type","type":"uint256"},{"internalType":"address","name":"addr","type":"address"}],"name":"setFeeAddr","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"Type","type":"uint256"},{"internalType":"uint256","name":"_num","type":"uint256"}],"name":"setFeeNum","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"Type","type":"uint256"},{"internalType":"int256","name":"_num","type":"int256"}],"name":"setWinNum","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"orderId","type":"uint256"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"transferEth","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"newOwner","type":"address"}],"name":"transferOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"userAmount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"userReferrer","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"userType","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"win","outputs":[{"internalType":"int256","name":"","type":"int256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"winAmount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"winTime1","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"winTime2","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"winTime3","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"winValue1","outputs":[{"internalType":"int256","name":"","type":"int256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"winValue2","outputs":[{"internalType":"int256","name":"","type":"int256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"winValue3","outputs":[{"internalType":"int256","name":"","type":"int256"}],"stateMutability":"view","type":"function"},{"stateMutability":"payable","type":"receive"}]';
+	
+	return text;	
+}
+
+//ERC20 合约授权
+function contract_erc20_abi(){
+	
+	var text='[{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"spender","type":"address"},{"indexed":false,"internalType":"uint256","name":"value","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"value","type":"uint256"}],"name":"Transfer","type":"event"},{"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"spender","type":"address"}],"name":"allowance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalSupply","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"transfer","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"transferFrom","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"}]';
 	
 	return text;	
 }
@@ -211,13 +484,233 @@ function contract_abi(){
     <td><input type="submit" name="account" id="account" value="链接账户" style="width:100px;height:30px"  onclick="account()"/></td>
     <td>
      <input type="hidden" name="contract" id="contract" />
+     <input type="hidden" name="contractErc20" id="contractErc20" />
      <input type="hidden" name="web3connect" id="web3connect" />
+     <input type="hidden" name="referrer" id="referrer" />
      （请先链接账户）</td>
   </tr>
   <tr>
     <td>&nbsp;</td>
     <td>账户ETH余额：</td>
     <td><p id="balance" align="left" ></p></td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>下注合约地址</td>
+    <td><p id="contractAddress" align="left" ></p></td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td><input type="submit" name="approve" id="approve" value="授权合约得到代币" style="width:100px;height:30px"  onclick="approveFunc()"/></td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td><input type="submit" name="info" id="info" value="查看自己信息" style="width:100px;height:30px"  onclick="userInfo(0)"/></td>
+    <td>&nbsp;</td>
+    <td>返回列表对应字段含义</td>
+    <td><p>&nbsp;</p>
+      <p>0 用户地址</p>
+    <p>1 下注类型</p>
+    <p>2 下注金额</p>
+    <p>3 推广奖励</p>
+    <p>&nbsp;</p></td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>下注金额</td>
+    <td><p id="amount" align="left" ></p></td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>推广奖励</td>
+    <td><p id="rewards" align="left" ></p></td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td><input type="submit" name="betting" id="betting" value="立即投注" style="width:100px;height:30px"  onclick="Betting()"/></td>
+    <td><input name="amount_bet" type="text" id="amount_bet" value="100" /></td>
+    <td><input name="type" type="text" id="type" value="1" /></td>
+    <td>0 无人获胜 1 马斯克深 2 扎克伯格胜</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td><input type="submit" name="contract_Info" id="contract_Info" value="查看全局信息" style="width:100px;height:30px"  onclick="contractInfo()"/></td>
+    <td>&nbsp;</td>
+    <td>返回列表对应字段含义</td>
+    <td><p>0 合约状态 true 允许下注 false 停止下注</p>
+    <p>1 推荐人费率 10‰</p>
+    <p>2 最小下注金额</p>
+    <p>3 类型 0 下注总金额</p>
+    <p>4 类型 1 下注总金额</p>
+    <p>5 类型 2 下注总金额</p>
+    <p>6 合约开奖类型 -2 合约退单 -1 未开奖 0 比赛没有结果 1 马斯克获胜 2 扎克伯格获胜</p></td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>当前马斯克一方下注</td>
+    <td><p id="musk" align="left" ></p></td>
+    <td>赔率</td>
+    <td><p id="musk_odds" align="left" >赔率计算公式 </p>
+      <p align="left" ></p>
+      <p align="left" >当前选项下注总金额&gt;另外两方金额</p>
+      <p align="left" ></p>
+      <p align="left" >当前赔率金额/另外两方下注金额=相对赔率</p>
+    <p align="left" ></p>
+    <p align="left" ></p>
+    <p align="left" >当前下注总金额&lt;另外两方金额</p>
+    <p align="left" >另外两方金额/当前下注总金额=相对赔率    </p>
+    <p align="left" >比如当前下注金额为 100，另外两方下注金额为 500</p>
+    <p align="left" >则赔率为</p>
+    <p align="left" >500/100=5</p>
+    <p align="left" >赔率为 1:5</p>
+    <p align="left" >&nbsp; </p>
+    <p align="left" >比如当前下注金额为 100，另外两方下注金额为 150</p>
+    <p align="left" >则赔率为</p>
+    <p align="left" >150/100=1.5</p>
+    <p align="left" >赔率为 1:1.5</p>
+    <p align="left" ></p></td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>当前扎克伯格一方下注</td>
+    <td><p id="zuck" align="left" ></p></td>
+    <td>赔率</td>
+    <td><p id="zuck_odds" align="left" ></p></td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>当前中间方下注</td>
+    <td>&nbsp;</td>
+    <td>赔率</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td><input type="submit" name="receive_bonus" id="receive_bonus" value="领取奖励" style="width:100px;height:30px"  onclick="account()"/></td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>特殊情况</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td><input type="submit" name="send_back" id="send_back" value="合约退单" style="width:100px;height:30px"  onclick="sendBack()"/></td>
+    <td>&nbsp;</td>
     <td>&nbsp;</td>
     <td>&nbsp;</td>
   </tr>
